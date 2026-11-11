@@ -1,0 +1,55 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Biblioteca — PROMPT CLUB</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+:root{--g:#00FFAA;--c:#1F1F1F;--l:#2E2E2E;--m:#A6A6A6;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(900px 420px at 80% -6%,rgba(0,255,170,.10),transparent 60%),#000;color:#fff;font:400 16px/1.5 Inter,system-ui,sans-serif;padding:0 16px 40px}
+.w{max-width:1100px;margin:0 auto}
+.nav{display:flex;align-items:center;gap:16px;height:64px;border-bottom:1px solid var(--l)}
+.logo{font:700 20px "Space Grotesk",sans-serif;color:#fff;text-decoration:none}.logo span{color:var(--g)}.sp{flex:1}
+.nav a{color:var(--m);text-decoration:none;font-size:15px}.nav a.b{color:#000;background:var(--g);border-radius:10px;padding:8px 14px;font-weight:600}
+h1{font:700 36px "Space Grotesk",sans-serif;letter-spacing:-.02em;margin:28px 0 16px}
+input{width:100%;height:48px;border-radius:12px;border:1px solid #3a3a3a;background:#000;color:#fff;padding:0 14px;font:400 16px Inter,sans-serif}
+input:focus{outline:none;border-color:var(--g)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:14px 0 18px}
+.chip{flex:none;height:36px;padding:0 14px;border-radius:99px;border:1px solid var(--l);background:transparent;color:var(--m);font:400 14px Inter,sans-serif;cursor:pointer}
+.chip.on{background:var(--g);border-color:var(--g);color:#000;font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+@media(max-width:900px){.grid{grid-template-columns:repeat(3,1fr)}}@media(max-width:640px){.grid{grid-template-columns:repeat(2,1fr);gap:12px}}
+.pc{display:flex;flex-direction:column;gap:6px;background:var(--c);border:1px solid var(--l);border-radius:16px;padding:10px;color:#fff;text-decoration:none;transition:transform .2s,border-color .2s,box-shadow .2s}
+.pc:hover{transform:translateY(-4px);border-color:var(--g);box-shadow:0 10px 30px rgba(0,255,170,.12)}
+.ph{position:relative;aspect-ratio:4/5;border-radius:10px;overflow:hidden;background:repeating-linear-gradient(135deg,#141414 0 14px,#1b1b1b 14px 28px)}
+.ph img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s}.pc:hover img{transform:scale(1.05)}
+.tag{position:absolute;top:8px;left:8px;background:#000;border:1px solid var(--g);color:var(--g);border-radius:99px;padding:2px 10px;font-size:12px;font-weight:600}
+.pc b{font:600 15px "Space Grotesk",sans-serif}.muted{color:var(--m);font-size:13px}
+#st{color:var(--m);padding:30px 0;text-align:center}
+</style></head><body><div class="w">
+<div class="nav"><a class="logo" href="biblioteca.html">PROMPT <span>CLUB</span></a><span class="sp"></span><a class="b" href="login.html">Minha conta</a></div>
+<h1>Biblioteca</h1>
+<input id="q" placeholder="Buscar por nome ou descrição" aria-label="Buscar">
+<div class="chips" id="chips"></div>
+<div class="grid" id="grid"></div><p id="st">Carregando…</p>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/supabase-client.js"></script>
+<script>
+const $=id=>document.getElementById(id);let all=[],cat='';
+function render(){const q=$('q').value.trim().toLowerCase();
+ const r=all.filter(x=>(!cat||x.category_id===cat)&&(!q||(x.title+' '+(x.description||'')).toLowerCase().includes(q)));
+ const g=$('grid');g.innerHTML='';$('st').textContent=r.length?'':'Nenhum prompt encontrado.';
+ r.forEach(x=>{const a=document.createElement('a'),ph=document.createElement('div'),t=document.createElement('span'),b=document.createElement('b'),m=document.createElement('span');
+  a.className='pc';a.href='prompt.html?id='+x.id;ph.className='ph';
+  if(x.preview_url){const i=document.createElement('img');i.src=x.preview_url;i.alt=x.title;i.loading='lazy';ph.appendChild(i)}
+  t.className='tag';t.textContent=x.cost+(x.cost>1?' créditos':' crédito');ph.appendChild(t);
+  b.textContent=x.title;m.className='muted';m.textContent=x.categories?x.categories.name:'';
+  a.append(ph,b,m);g.appendChild(a)})}
+function chip(label,id){const b=document.createElement('button');b.className='chip'+(cat===id?' on':'');b.textContent=label;
+ b.onclick=()=>{cat=id;[...$('chips').children].forEach(c=>c.classList.toggle('on',c===b));render()};$('chips').appendChild(b)}
+(async()=>{let sb;try{sb=await getSupabase()}catch(e){$('st').textContent='Site sem configuração: '+e.message;return}
+ const[c,p]=await Promise.all([sb.from('categories').select('id,name').order('sort'),
+  sb.from('prompts').select('id,title,description,cost,preview_url,category_id,categories(name)').eq('status','published').order('created_at',{ascending:false})]);
+ if(p.error){$('st').textContent='Erro ao carregar: '+p.error.message;return}
+ all=p.data;chip('Todas','');(c.data||[]).forEach(x=>chip(x.name,x.id));$('q').oninput=render;render()})();
+</script></body></html>

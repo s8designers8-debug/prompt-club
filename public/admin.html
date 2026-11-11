@@ -1,0 +1,87 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Admin — PROMPT CLUB</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+:root{--g:#00FFAA;--c:#1F1F1F;--l:#2E2E2E;--m:#A6A6A6;color-scheme:dark}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;min-height:100vh;background:radial-gradient(800px 400px at 80% -5%,rgba(0,255,170,.12),transparent 60%),#000;color:#fff;font:400 16px/1.5 Inter,system-ui,sans-serif;padding:24px 16px}
+.box{max-width:640px;margin:3vh auto 0}
+h1{font:700 28px "Space Grotesk",sans-serif;letter-spacing:-.02em;margin:0}h1 span{color:var(--g)}
+h2{font:700 20px "Space Grotesk",sans-serif;margin:0 0 6px}
+.card{background:var(--c);border:1px solid var(--l);border-radius:16px;padding:22px;margin-top:20px}
+label{display:block;font-size:14px;color:var(--m);margin:14px 0 6px}
+input,select,textarea{display:block;width:100%;border-radius:12px;border:1px solid #3a3a3a;background:#000;color:#fff;padding:0 14px;font:400 16px Inter,sans-serif;height:48px}
+textarea{height:150px;padding:12px;resize:vertical}input[type=file]{padding:10px 14px;height:auto}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--g)}
+.btn{height:46px;border-radius:12px;border:1px solid #3a3a3a;background:transparent;color:#fff;font:600 15px Inter,sans-serif;cursor:pointer;padding:0 16px}
+.btn:active{transform:scale(.97)}.p{width:100%;margin-top:18px;background:var(--g);border-color:var(--g);color:#000}.p:disabled{opacity:.5}
+.s{height:36px;font-size:13px;padding:0 12px}
+a{color:var(--g)}#msg{min-height:22px;margin:14px 0 0;font-size:14px}.err{color:#ff6b6b}.ok{color:var(--g)}
+.muted{color:var(--m);font-size:14px}ul{list-style:none;padding:0;margin:8px 0 0}
+li{display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--l)}
+li img{width:44px;height:55px;object-fit:cover;border-radius:8px;border:1px solid var(--l);background:#141414}
+li div{flex:1;min-width:0}li b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{font-size:12px;border:1px solid #3a3a3a;border-radius:99px;padding:1px 8px;color:var(--m)}.badge.on{color:var(--g);border-color:var(--g)}
+</style></head><body><div class="box">
+<h1>PROMPT <span>CLUB</span> · Admin</h1>
+<div class="card" id="gate">Carregando…</div>
+<div id="panel" hidden>
+<div class="card"><h2>Novo prompt</h2>
+<label for="title">Título</label><input id="title" maxlength="120">
+<label for="desc">Descrição (opcional)</label><input id="desc" maxlength="300">
+<label for="cat">Categoria</label><select id="cat"><option value="">Sem categoria</option></select>
+<label for="cost">Custo em créditos</label><input id="cost" type="number" min="1" value="1">
+<label for="body">Texto do prompt (protegido até o desbloqueio)</label><textarea id="body"></textarea>
+<label for="img">Imagem de prévia (até 3 MB)</label><input id="img" type="file" accept="image/*">
+<label for="status">Status</label><select id="status"><option value="draft">Rascunho</option><option value="published">Publicado</option></select>
+<button class="btn p" id="save">Salvar prompt</button><p id="msg"></p></div>
+<div class="card"><h2>Prompts cadastrados</h2><ul id="list"></ul></div>
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/supabase-client.js"></script>
+<script>
+const $=id=>document.getElementById(id);let sb;
+const note=(t,ok)=>{$('msg').textContent=t||'';$('msg').className=ok?'ok':'err'};
+async function init(){
+ try{sb=await getSupabase()}catch(e){$('gate').textContent='Site sem configuração: '+e.message;return}
+ const{data:{user}}=await sb.auth.getUser();
+ if(!user){$('gate').innerHTML='Faça login em <a href="login.html">login.html</a> e volte aqui.';return}
+ const p=await sb.from('profiles').select('role').eq('id',user.id).maybeSingle();
+ if(!p.data||p.data.role!=='admin'){$('gate').textContent='Acesso restrito a administradores.';return}
+ $('gate').hidden=true;$('panel').hidden=false;
+ const c=await sb.from('categories').select('id,name').order('sort');
+ (c.data||[]).forEach(x=>{const o=document.createElement('option');o.value=x.id;o.textContent=x.name;$('cat').appendChild(o)});
+ list()}
+async function list(){
+ const r=await sb.from('prompts').select('id,title,status,cost,preview_url,categories(name)').order('created_at',{ascending:false});
+ const ul=$('list');ul.innerHTML='';
+ if(r.error){ul.textContent='Erro ao listar: '+r.error.message;return}
+ if(!r.data.length){ul.innerHTML='<li class="muted">Nenhum prompt ainda.</li>';return}
+ r.data.forEach(x=>{const li=document.createElement('li'),im=document.createElement('img'),d=document.createElement('div'),b=document.createElement('b'),s=document.createElement('span'),bt=document.createElement('button');
+  if(x.preview_url)im.src=x.preview_url;b.textContent=x.title;
+  const pub=x.status==='published';s.className='badge'+(pub?' on':'');
+  s.textContent=({draft:'Rascunho',published:'Publicado',hidden:'Oculto'})[x.status]+' · '+x.cost+' crédito(s)'+(x.categories?' · '+x.categories.name:'');
+  bt.className='btn s';bt.textContent=pub?'Ocultar':'Publicar';
+  bt.onclick=async()=>{bt.disabled=true;await sb.from('prompts').update({status:pub?'hidden':'published'}).eq('id',x.id);list()};
+  d.append(b,s);li.append(im,d,bt);ul.appendChild(li)})}
+$('save').onclick=async()=>{
+ const title=$('title').value.trim(),body=$('body').value.trim();
+ if(!title||!body)return note('Preencha o título e o texto do prompt.');
+ $('save').disabled=true;note('Salvando…',true);
+ try{
+  let url=null;const f=$('img').files[0];
+  if(f){if(f.size>3*1024*1024)throw new Error('Imagem muito grande (máximo 3 MB).');
+   const ext=((f.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,''))||'jpg',path=crypto.randomUUID()+'.'+ext;
+   const up=await sb.storage.from('previews').upload(path,f,{contentType:f.type});
+   if(up.error)throw new Error('Falha ao enviar a imagem: '+up.error.message);
+   url=sb.storage.from('previews').getPublicUrl(path).data.publicUrl}
+  const ins=await sb.from('prompts').insert({title,description:$('desc').value.trim()||null,category_id:$('cat').value||null,cost:parseInt($('cost').value)||1,preview_url:url,status:$('status').value}).select('id').single();
+  if(ins.error)throw new Error('Falha ao salvar: '+ins.error.message);
+  const sec=await sb.from('prompt_secrets').insert({prompt_id:ins.data.id,body});
+  if(sec.error){await sb.from('prompts').delete().eq('id',ins.data.id);throw new Error('Falha ao salvar o texto: '+sec.error.message)}
+  ['title','desc','body','img'].forEach(k=>$(k).value='');note('Prompt salvo!',true);list()
+ }catch(e){note(e.message)}
+ $('save').disabled=false};
+init();
+</script></body></html>

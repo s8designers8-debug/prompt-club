@@ -1,0 +1,85 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Entrar — PROMPT CLUB</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+:root{--g:#00FFAA;--c:#1F1F1F;--l:#2E2E2E;--m:#A6A6A6;color-scheme:dark}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;min-height:100vh;background:radial-gradient(800px 400px at 80% -5%,rgba(0,255,170,.12),transparent 60%),#000;color:#fff;font:400 16px/1.5 Inter,system-ui,sans-serif;padding:24px 16px}
+.box{max-width:420px;margin:5vh auto 0}
+h1{font:700 28px "Space Grotesk",sans-serif;letter-spacing:-.02em;margin:0}h1 span{color:var(--g)}
+h2{font:700 22px "Space Grotesk",sans-serif;margin:0 0 6px}
+.card{background:var(--c);border:1px solid var(--l);border-radius:16px;padding:22px;margin-top:20px}
+.tabs{display:flex;gap:8px;margin-bottom:6px}
+.btn{height:46px;border-radius:12px;border:1px solid #3a3a3a;background:transparent;color:#fff;font:600 15px Inter,sans-serif;cursor:pointer;transition:transform .15s,box-shadow .2s}
+.btn:active{transform:scale(.97)}.tabs .btn{flex:1}.on,.p{background:var(--g);border-color:var(--g);color:#000}
+.p{width:100%;margin-top:18px}.p:hover{box-shadow:0 0 24px rgba(0,255,170,.35)}
+label{display:block;font-size:14px;color:var(--m);margin:14px 0 6px}
+input{display:block;width:100%;height:48px;border-radius:12px;border:1px solid #3a3a3a;background:#000;color:#fff;padding:0 14px;font:400 16px Inter,sans-serif}
+input:focus{outline:none;border-color:var(--g)}
+a,.lnk{color:var(--m);font-size:14px;background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;font-family:inherit}
+#msg{min-height:22px;margin:14px 0 0;font-size:14px}.err{color:#ff6b6b}.ok{color:var(--g)}
+.num{font:700 56px "Space Grotesk",sans-serif;color:var(--g);line-height:1}
+.muted{color:var(--m);font-size:14px}ul{list-style:none;padding:0;margin:8px 0 0}
+li{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--l);font-size:14px}
+</style></head><body><div class="box">
+<h1>PROMPT <span>CLUB</span></h1>
+<div class="card">
+<div id="auth"><div class="tabs"><button class="btn on" id="tin">Entrar</button><button class="btn" id="tup">Criar conta</button></div>
+<div id="nm" hidden><label for="name">Nome</label><input id="name" autocomplete="name" placeholder="Seu nome"></div>
+<label for="email">E-mail</label><input id="email" type="email" autocomplete="email" placeholder="voce@email.com">
+<label for="pass">Senha</label><input id="pass" type="password" autocomplete="current-password" placeholder="Mínimo de 8 caracteres">
+<button class="btn p" id="go">Entrar</button>
+<p style="margin:14px 0 0"><button class="lnk" id="forgot">Esqueci minha senha</button></p></div>
+<div id="recover" hidden><h2>Recuperar senha</h2><p class="muted">Enviaremos um link para o seu e-mail.</p>
+<label for="remail">E-mail</label><input id="remail" type="email" placeholder="voce@email.com">
+<button class="btn p" id="send">Enviar link</button>
+<p style="margin:14px 0 0"><button class="lnk" id="back">Voltar</button></p></div>
+<div id="newpass" hidden><h2>Nova senha</h2><label for="np">Nova senha</label><input id="np" type="password" autocomplete="new-password" placeholder="Mínimo de 8 caracteres">
+<button class="btn p" id="save">Salvar nova senha</button></div>
+<div id="account" hidden><p class="muted" id="who" style="margin:0"></p>
+<p class="muted" style="margin:16px 0 4px">Seus créditos</p><div class="num" id="tot">…</div>
+<p class="muted" id="det"></p><h2 style="font-size:17px;margin-top:20px">Histórico</h2><ul id="led"></ul>
+<button class="btn p" id="out" style="background:transparent;color:#fff;border-color:#3a3a3a">Sair</button></div>
+<p id="msg"></p></div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/supabase-client.js"></script>
+<script>
+const $=id=>document.getElementById(id);let sb,mode='in',recovering=false;
+const show=n=>['auth','recover','newpass','account'].forEach(x=>$(x).hidden=x!==n);
+const msg=(t,ok)=>{$('msg').textContent=t||'';$('msg').className=ok?'ok':'err'};
+const tr=e=>/Invalid login/i.test(e.message)?'E-mail ou senha incorretos.':/not confirmed/i.test(e.message)?'Confirme seu e-mail antes de entrar.':/rate limit/i.test(e.message)?'Muitas tentativas. Aguarde alguns minutos.':e.message;
+function setMode(m){mode=m;$('tin').className='btn'+(m==='in'?' on':'');$('tup').className='btn'+(m==='up'?' on':'');
+ $('nm').hidden=m!=='up';$('go').textContent=m==='up'?'Criar conta grátis':'Entrar';
+ $('pass').autocomplete=m==='up'?'new-password':'current-password';msg('')}
+$('tin').onclick=()=>setMode('in');$('tup').onclick=()=>setMode('up');
+$('forgot').onclick=()=>{show('recover');msg('')};$('back').onclick=()=>{show('auth');msg('')};
+$('go').onclick=async()=>{msg('');const email=$('email').value.trim(),password=$('pass').value;
+ if(!email||password.length<8)return msg('Informe o e-mail e uma senha de pelo menos 8 caracteres.');
+ if(mode==='up'){const{data,error}=await sb.auth.signUp({email,password,options:{data:{name:$('name').value.trim()},emailRedirectTo:location.origin+'/login.html'}});
+  if(error)return msg(tr(error));if(!data.session)msg('Enviamos um e-mail de confirmação. Abra o e-mail e toque no link.',true)}
+ else{const{error}=await sb.auth.signInWithPassword({email,password});if(error)msg(tr(error))}};
+$('send').onclick=async()=>{const e=$('remail').value.trim();if(!e)return msg('Informe o e-mail.');
+ const{error}=await sb.auth.resetPasswordForEmail(e,{redirectTo:location.origin+'/login.html'});
+ error?msg(tr(error)):msg('Se o e-mail tiver conta, o link foi enviado.',true)};
+$('save').onclick=async()=>{const p=$('np').value;if(p.length<8)return msg('Mínimo de 8 caracteres.');
+ const{error}=await sb.auth.updateUser({password:p});if(error)return msg(tr(error));
+ recovering=false;msg('Senha alterada!',true);const{data}=await sb.auth.getUser();if(data.user)loadAccount(data.user)};
+$('out').onclick=()=>sb.auth.signOut();
+const kinds={welcome:'Boas-vindas',unlock:'Desbloqueio de prompt',purchase:'Compra de créditos'};
+async function loadAccount(u){show('account');msg('');$('who').textContent=u.email;
+ const w=await sb.from('wallets').select('*').maybeSingle();
+ if(w.error||!w.data){$('tot').textContent='?';$('det').textContent='Não foi possível carregar o saldo.';return}
+ const m=w.data.monthly_expires_at&&new Date(w.data.monthly_expires_at)<new Date()?0:w.data.monthly_balance;
+ $('tot').textContent=m+w.data.extra_balance;
+ $('det').textContent=w.data.extra_balance+' extras (não expiram) · '+m+' mensais';
+ const l=await sb.from('credit_ledger').select('kind,delta,created_at').order('created_at',{ascending:false}).limit(10);
+ $('led').innerHTML='';(l.data||[]).forEach(r=>{const li=document.createElement('li'),a=document.createElement('span'),b=document.createElement('span');
+  a.textContent=new Date(r.created_at).toLocaleDateString('pt-BR')+' · '+(kinds[r.kind]||r.kind);
+  b.textContent=(r.delta>0?'+':'')+r.delta;b.style.color=r.delta>0?'#00FFAA':'#fff';li.append(a,b);$('led').appendChild(li)})}
+(async()=>{try{sb=await getSupabase()}catch(e){return msg('Site sem configuração: '+e.message)}
+ sb.auth.onAuthStateChange((ev,s)=>{
+  if(ev==='PASSWORD_RECOVERY'){recovering=true;show('newpass');return}
+  if(recovering)return;
+  setTimeout(()=>{s?loadAccount(s.user):show('auth')},0)})})();
+</script></body></html>

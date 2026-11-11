@@ -14,9 +14,13 @@ const add=(ok,t)=>{const li=document.createElement('li');li.className=ok?'ok':'e
  const c=await sb.from('categories').select('name').order('sort');
  if(c.error)add(false,'Leitura do banco falhou: '+c.error.message);
  else add(c.data.length===8,'Banco respondeu: '+c.data.length+' categorias (esperado: 8)');
+ const prot=x=>x.error?/permission denied/i.test(x.error.message):(x.data||[]).length===0;
+ const det=x=>x.error?' ('+x.error.message+')':' (resposta vazia)';
  const s=await sb.from('prompt_secrets').select('body');
- add(!s.error&&s.data.length===0,'Textos pagos protegidos (visitante não vê nada)');
+ add(prot(s),'Textos pagos protegidos'+det(s));
  const w=await sb.from('wallets').select('*');
- add(!w.error&&w.data.length===0,'Carteiras protegidas (visitante não vê nada)');
+ add(prot(w),'Carteiras protegidas'+det(w));
+ const u=await sb.rpc('unlock_prompt',{p_prompt_id:'00000000-0000-0000-0000-000000000000'});
+ add(!!u.error,'Desbloqueio recusado sem login'+det(u));
 })();
 </script></body></html>

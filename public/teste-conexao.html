@@ -1,0 +1,22 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teste de conexão — PROMPT CLUB</title>
+<style>body{background:#000;color:#fff;font:16px/1.5 system-ui;padding:24px}h1{font-size:22px}
+li{margin:8px 0}.ok{color:#00FFAA}.erro{color:#ff6b6b}code{color:#A6A6A6}</style></head><body>
+<h1>Teste de conexão</h1><ul id="r"><li>Executando…</li></ul>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/supabase-client.js"></script>
+<script>
+const r=document.getElementById('r');r.innerHTML='';
+const add=(ok,t)=>{const li=document.createElement('li');li.className=ok?'ok':'erro';li.textContent=(ok?'✔ ':'✖ ')+t;r.appendChild(li)};
+(async()=>{
+ let sb;try{sb=await getSupabase();add(true,'Configuração recebida da Netlify')}catch(e){add(false,e.message);return}
+ const c=await sb.from('categories').select('name').order('sort');
+ if(c.error)add(false,'Leitura do banco falhou: '+c.error.message);
+ else add(c.data.length===8,'Banco respondeu: '+c.data.length+' categorias (esperado: 8)');
+ const s=await sb.from('prompt_secrets').select('body');
+ add(!s.error&&s.data.length===0,'Textos pagos protegidos (visitante não vê nada)');
+ const w=await sb.from('wallets').select('*');
+ add(!w.error&&w.data.length===0,'Carteiras protegidas (visitante não vê nada)');
+})();
+</script></body></html>

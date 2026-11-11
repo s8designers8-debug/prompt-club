@@ -1,0 +1,69 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Prompt — PROMPT CLUB</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+:root{--g:#00FFAA;--c:#1F1F1F;--l:#2E2E2E;--m:#A6A6A6;color-scheme:dark}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;min-height:100vh;background:radial-gradient(900px 420px at 80% -6%,rgba(0,255,170,.10),transparent 60%),#000;color:#fff;font:400 16px/1.5 Inter,system-ui,sans-serif;padding:0 16px 40px}
+.w{max-width:980px;margin:0 auto}
+.nav{display:flex;align-items:center;gap:16px;height:64px;border-bottom:1px solid var(--l)}
+.logo{font:700 20px "Space Grotesk",sans-serif;color:#fff;text-decoration:none}.logo span{color:var(--g)}.sp{flex:1}
+.nav a{color:var(--m);text-decoration:none;font-size:15px}.pill{border:1px solid var(--g);color:var(--g);border-radius:99px;padding:5px 14px;font-weight:600;font-size:14px}
+.cols{display:grid;grid-template-columns:380px 1fr;gap:36px;margin-top:28px;align-items:start}
+@media(max-width:760px){.cols{grid-template-columns:1fr;gap:20px}}
+.ph{aspect-ratio:4/5;border-radius:16px;overflow:hidden;border:1px solid var(--l);background:repeating-linear-gradient(135deg,#141414 0 14px,#1b1b1b 14px 28px)}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.chip{display:inline-block;border:1px solid var(--l);color:var(--m);border-radius:99px;padding:2px 12px;font-size:13px}
+h1{font:700 34px/1.1 "Space Grotesk",sans-serif;letter-spacing:-.02em;margin:12px 0}
+.muted{color:var(--m)}.card{background:var(--c);border:1px solid var(--l);border-radius:16px;padding:20px;margin-top:20px}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:48px;padding:0 20px;border-radius:12px;border:1px solid #3a3a3a;background:transparent;color:#fff;font:600 15px Inter,sans-serif;cursor:pointer;text-decoration:none;transition:transform .15s,box-shadow .2s}
+.btn:active{transform:scale(.97)}.btn.p{background:var(--g);border-color:var(--g);color:#000}.btn.p:hover{box-shadow:0 0 24px rgba(0,255,170,.35)}.btn:disabled{opacity:.5}
+.lk{height:12px;border-radius:6px;background:#2a2a2a;margin:10px 0}
+#txt{white-space:pre-wrap;word-break:break-word;margin:12px 0}
+#msg{min-height:22px;margin:12px 0 0;font-size:14px}.err{color:#ff6b6b}.ok{color:var(--g)}
+.pop{animation:pop .35s ease}@keyframes pop{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+</style></head><body><div class="w">
+<div class="nav"><a class="logo" href="biblioteca.html">PROMPT <span>CLUB</span></a><a href="biblioteca.html">← Biblioteca</a><span class="sp"></span><span class="pill" id="bal" hidden></span><a href="login.html" id="acc">Minha conta</a></div>
+<p id="st" class="muted" style="margin-top:28px">Carregando…</p>
+<div class="cols" id="main" hidden>
+<div class="ph"><img id="img" alt=""></div>
+<div><span class="chip" id="cat"></span><h1 id="ttl"></h1><p class="muted" id="desc"></p>
+<div class="card" id="locked"><h2 style="margin:0 0 8px;font:700 20px 'Space Grotesk',sans-serif">Texto protegido</h2>
+<div class="lk"></div><div class="lk" style="width:85%"></div><div class="lk" style="width:60%"></div>
+<p class="muted" style="font-size:14px">O texto só chega ao seu navegador depois que o servidor confirma seus créditos.</p>
+<button class="btn p" id="unlock"></button><p id="msg"></p></div>
+<div class="card pop" id="open" hidden><span class="chip" style="color:var(--g);border-color:var(--g)">Desbloqueado</span>
+<p id="txt"></p><button class="btn p" id="copy">Copiar prompt</button> <span id="cm" class="ok" style="font-size:14px"></span></div>
+</div></div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/supabase-client.js"></script>
+<script>
+const $=id=>document.getElementById(id);let sb,id,user,cost=1;
+const msg=(t,ok)=>{$('msg').textContent=t||'';$('msg').className=ok?'ok':'err'};
+async function balance(){if(!user)return;const w=await sb.from('wallets').select('*').maybeSingle();if(!w.data)return;
+ const m=w.data.monthly_expires_at&&new Date(w.data.monthly_expires_at)<new Date()?0:w.data.monthly_balance,t=m+w.data.extra_balance;
+ $('bal').textContent=t+(t===1?' crédito':' créditos');$('bal').hidden=false}
+function reveal(text){$('locked').hidden=true;$('open').hidden=false;$('txt').textContent=text}
+async function doUnlock(){msg('');$('unlock').disabled=true;
+ const r=await sb.rpc('unlock_prompt',{p_prompt_id:id});
+ if(r.error){$('unlock').disabled=false;return msg(/insuficientes/i.test(r.error.message)?'Você não tem créditos suficientes.':'Não foi possível desbloquear: '+r.error.message)}
+ reveal(r.data);balance()}
+(async()=>{id=new URLSearchParams(location.search).get('id');
+ try{sb=await getSupabase()}catch(e){$('st').textContent='Site sem configuração: '+e.message;return}
+ if(!id){$('st').textContent='Prompt não informado.';return}
+ const p=await sb.from('prompts').select('id,title,description,cost,preview_url,categories(name)').eq('id',id).maybeSingle();
+ if(p.error||!p.data){$('st').textContent='Prompt não encontrado.';return}
+ const x=p.data;cost=x.cost;document.title=x.title+' — PROMPT CLUB';
+ $('ttl').textContent=x.title;$('desc').textContent=x.description||'';$('cat').textContent=x.categories?x.categories.name:'';$('cat').hidden=!x.categories;
+ if(x.preview_url){$('img').src=x.preview_url;$('img').alt=x.title}
+ $('st').hidden=true;$('main').hidden=false;
+ const label='Desbloquear por '+cost+(cost>1?' créditos':' crédito');$('unlock').textContent=label;
+ const u=await sb.auth.getUser();user=u.data.user;
+ if(!user){$('unlock').textContent='Entrar para desbloquear';$('unlock').onclick=()=>location.href='login.html';return}
+ $('acc').hidden=true;balance();
+ const k=await sb.from('unlocks').select('prompt_id').eq('prompt_id',id).maybeSingle();
+ if(k.data){const r=await sb.rpc('unlock_prompt',{p_prompt_id:id});if(!r.error){reveal(r.data);return}}
+ $('unlock').onclick=doUnlock})();
+$('copy').onclick=async()=>{try{await navigator.clipboard.writeText($('txt').textContent);$('cm').textContent='Copiado!'}catch(e){$('cm').textContent='Selecione o texto e copie.'}};
+</script></body></html>

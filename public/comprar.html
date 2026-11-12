@@ -1,0 +1,44 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Comprar créditos — PROMPT CLUB</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+:root{--g:#00FFAA;--c:#1F1F1F;--l:#2E2E2E;--m:#A6A6A6;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(800px 400px at 80% -5%,rgba(0,255,170,.12),transparent 60%),#000;color:#fff;font:400 16px/1.5 Inter,system-ui,sans-serif;padding:24px 16px}
+.box{max-width:480px;margin:5vh auto 0}
+a{color:var(--g)}h1{font:700 28px "Space Grotesk",sans-serif;margin:0}h1 span{color:var(--g)}
+.card{background:var(--c);border:1px solid var(--l);border-radius:16px;padding:20px;margin-top:16px}
+.nm{font:700 20px "Space Grotesk",sans-serif}.pr{font:700 32px "Space Grotesk",sans-serif;color:var(--g);margin:6px 0}
+.muted{color:var(--m);font-size:14px}
+.btn{width:100%;height:48px;margin-top:12px;border-radius:12px;border:0;background:var(--g);color:#000;font:600 15px Inter,sans-serif;cursor:pointer}
+.btn:active{transform:scale(.97)}.btn:disabled{opacity:.5}
+#msg{min-height:22px;margin-top:14px;font-size:14px;color:#ff6b6b}
+</style></head><body><div class="box">
+<h1>PROMPT <span>CLUB</span></h1>
+<p class="muted">Comprar créditos extras. Eles não expiram. Pagamento por Pix ou cartão na página segura do Mercado Pago.</p>
+<div id="list"><p class="muted">Carregando…</p></div><p id="msg"></p>
+<p class="muted"><a href="biblioteca.html">← Biblioteca</a> · <a href="login.html">Minha conta</a></p>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="js/supabase-client.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+(async()=>{let sb;try{sb=await getSupabase()}catch(e){$('list').textContent='Site sem configuração: '+e.message;return}
+ const{data:{session}}=await sb.auth.getSession();
+ if(!session){$('list').innerHTML='<p>Faça login em <a href="login.html">login.html</a> e volte aqui.</p>';return}
+ const r=await sb.from('credit_packages').select('id,name,credits,price_cents').eq('active',true).order('price_cents');
+ const L=$('list');L.innerHTML='';
+ if(r.error){L.textContent='Erro ao carregar os pacotes: '+r.error.message;return}
+ if(!r.data.length){L.innerHTML='<p class="muted">Nenhum pacote disponível no momento.</p>';return}
+ r.data.forEach(p=>{const c=document.createElement('div'),n=document.createElement('div'),pr=document.createElement('div'),m=document.createElement('div'),b=document.createElement('button');
+  c.className='card';n.className='nm';n.textContent=p.name;pr.className='pr';pr.textContent=(p.price_cents/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  m.className='muted';m.textContent=p.credits+(p.credits>1?' créditos':' crédito')+' · sem vencimento';b.className='btn';b.textContent='Comprar com Pix ou cartão';
+  b.onclick=async()=>{b.disabled=true;$('msg').textContent='';
+   try{const{data:{session:s}}=await sb.auth.getSession();
+    const res=await fetch('/.netlify/functions/create-checkout',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+s.access_token},body:JSON.stringify({packageId:p.id})});
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||!j.url)throw new Error(j.error||'Não foi possível iniciar o pagamento.');
+    location.href=j.url}catch(e){$('msg').textContent=e.message;b.disabled=false}};
+  c.append(n,pr,m,b);L.appendChild(c)})})();
+</script></body></html>
